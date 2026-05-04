@@ -1,0 +1,30 @@
+<!--
+  Append to the generated Info.plist after `yarn setup` runs `react-native init`.
+  Adds the keys required for biometric, background fetch, push, and Live Activities.
+-->
+<key>NSFaceIDUsageDescription</key>
+<string>PPLM Bedside requires Face ID to confirm you are the assigned clinician before showing patient data.</string>
+
+<key>UIBackgroundModes</key>
+<array>
+  <string>remote-notification</string>
+  <string>fetch</string>
+</array>
+
+<key>NSSupportsLiveActivities</key>
+<true/>
+
+<key>NSAppTransportSecurity</key>
+<dict>
+  <!-- Dev only: allow http://localhost for the mock server. Remove for production builds. -->
+  <key>NSAllowsLocalNetworking</key>
+  <true/>
+</dict>
+
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleURLSchemes</key>
+    <array><string>astappplm</string></array>
+  </dict>
+</array>

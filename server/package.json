@@ -1,0 +1,22 @@
+{
+  "name": "asta-pplm-server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "node --test --import tsx test/*.test.ts",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "express": "4.22.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "5.5.4"
+  }
+}
