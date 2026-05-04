@@ -6,6 +6,7 @@ import { api } from '@/data/api';
 import { AlertEvent, RosterEntry } from '@/data/types';
 import { Card } from '@/components/Card';
 import { Pill } from '@/components/Pill';
+import { relativeFromNow } from '@/data/time';
 
 type Props = {
   navigation: { navigate: (s: string, p: { token: string; eventId?: string }) => void };
@@ -55,9 +56,12 @@ export function InboxScreen({ navigation }: Props) {
                   </Text>
                 </View>
                 <Text style={[type.bodySemibold, { color: t.text.body, marginTop: 8 }]}>{item.headline}</Text>
-                <Text style={[type.metadata, { color: t.text.mute, marginTop: 8 }]}>
+                <Text style={[type.metadata, { color: t.text.mute, marginTop: 4 }]}>
+                  {`Fired ${relativeFromNow(item.firedAt)}`}
+                </Text>
+                <Text style={[type.metadata, { color: t.text.mute, marginTop: 4 }]}>
                   {item.acknowledged
-                    ? `Acknowledged at ${formatTime(item.acknowledged.at)} via ${item.acknowledged.via}`
+                    ? `Acknowledged ${relativeFromNow(item.acknowledged.at)} via ${item.acknowledged.via}`
                     : `Routing chain (${item.routingChain.length}): ${item.routingChain.map((r) => r.role).join(' → ')}`}
                 </Text>
               </View>
@@ -67,14 +71,6 @@ export function InboxScreen({ navigation }: Props) {
       />
     </View>
   );
-}
-
-function formatTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Kolkata',
-  }).format(new Date(iso)) + ' IST';
 }
 
 const styles = StyleSheet.create({

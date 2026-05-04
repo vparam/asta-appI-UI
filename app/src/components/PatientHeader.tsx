@@ -12,6 +12,7 @@ type Props = {
   density?: 'simple' | 'detailed';
   onChangeDensity?: () => void;
   onRerun?: () => void;
+  onOpenSettings?: () => void;
 };
 
 /**
@@ -25,26 +26,51 @@ export function PatientHeader({
   density = 'simple',
   onChangeDensity,
   onRerun,
+  onOpenSettings,
 }: Props) {
   const t = useTokens();
   const stale = syncedSecondsAgo > 60;
 
   return (
-    <View style={[styles.wrap, { backgroundColor: t.surface.canvas, borderBottomColor: t.surface.hairline }]}>
+    <View
+      style={[styles.wrap, { backgroundColor: t.surface.canvas, borderBottomColor: t.surface.hairline }]}
+      accessible
+      accessibilityLabel={`Patient header: ${bed.ward} bed ${bed.bed}, token ${bed.token}, ${state}`}
+    >
       <View style={styles.line1}>
         <Text style={[type.title, { color: t.text.ink }]}>{`${bed.ward} · Bed ${bed.bed}`}</Text>
         <View style={styles.right}>
           <Pill severity={state} label={state.toUpperCase()} />
           {onChangeDensity && (
-            <Pressable onPress={onChangeDensity} style={[styles.densityChip, { borderColor: t.surface.hairline }]}>
+            <Pressable
+              onPress={onChangeDensity}
+              style={[styles.densityChip, { borderColor: t.surface.hairline }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Density: ${density}. Tap to change.`}
+            >
               <Text style={[type.metadata, { color: t.text.body }]}>
                 {density === 'simple' ? 'Simple ▾' : 'Detailed ▾'}
               </Text>
             </Pressable>
           )}
           {onRerun && (
-            <Pressable onPress={onRerun} style={styles.rerunBtn}>
+            <Pressable
+              onPress={onRerun}
+              style={styles.rerunBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Rerun inference"
+            >
               <Text style={[type.body, { color: t.text.body }]}>⟳</Text>
+            </Pressable>
+          )}
+          {onOpenSettings && (
+            <Pressable
+              onPress={onOpenSettings}
+              style={styles.rerunBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+            >
+              <Text style={[type.body, { color: t.text.body }]}>⚙︎</Text>
             </Pressable>
           )}
         </View>

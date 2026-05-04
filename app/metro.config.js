@@ -11,6 +11,18 @@ const config = {
       path.resolve(projectRoot, 'node_modules'),
       path.resolve(workspaceRoot, 'node_modules'),
     ],
+    // `@/` import alias — mirrors tsconfig.json paths so editor + bundler agree.
+    extraNodeModules: new Proxy(
+      {},
+      {
+        get: (_t, name) => {
+          if (typeof name === 'string' && name.startsWith('@/')) {
+            return path.resolve(projectRoot, 'src', name.slice(2));
+          }
+          return path.join(projectRoot, 'node_modules', name);
+        },
+      }
+    ),
   },
 };
 

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTokens } from '@/theme/ThemeProvider';
 import { type } from '@/theme/typography';
 import { AlertEvent } from '@/data/types';
+import { relativeFromNow } from '@/data/time';
 import { Card } from './Card';
 import { Button } from './Button';
 
@@ -15,6 +16,8 @@ type Props = {
 /**
  * §7.3 Active alert strip. Anchored under Risk Summary. Two equal-weight
  * primary buttons: Acknowledge (stable green), Escalate (critical outlined).
+ *
+ * §3.2: time displayed as relative ("2m ago"), never as an absolute timestamp.
  */
 export function ActiveAlertStrip({ event, onAcknowledge, onEscalate }: Props) {
   const t = useTokens();
@@ -22,10 +25,22 @@ export function ActiveAlertStrip({ event, onAcknowledge, onEscalate }: Props) {
   const bg = isCrit ? t.severity.criticalBg : t.severity.watchBg;
   const tag = isCrit ? t.severity.critical : t.severity.watch;
 
+  // Tick the relative time once a minute so the strip reads honestly.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((x) => x + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  // Touch tick so it stays as a render dep (silence unused).
+  void tick;
+
   return (
-    <Card style={{ backgroundColor: bg, marginVertical: 8, padding: 16 }}>
+    <Card
+      style={{ backgroundColor: bg, marginVertical: 8, padding: 16 }}
+      accessibilityLabel={`${event.severity} alert fired ${relativeFromNow(event.firedAt)}: ${event.headline}`}
+    >
       <Text style={[type.smallCaps, { color: tag, marginBottom: 4 }]}>
-        {`${eventTime(event.firedAt)} · ${event.severity.toUpperCase()}`}
+        {`${relativeFromNow(event.firedAt)} · ${event.severity.toUpperCase()}`}
       </Text>
       <Text style={[type.bodySemibold, { color: t.text.body }]}>{event.headline}</Text>
       <View style={styles.btnRow}>
@@ -38,11 +53,6 @@ export function ActiveAlertStrip({ event, onAcknowledge, onEscalate }: Props) {
       </Text>
     </Card>
   );
-}
-
-function eventTime(iso: string): string {
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }).format(d) + ' IST';
 }
 
 const styles = StyleSheet.create({

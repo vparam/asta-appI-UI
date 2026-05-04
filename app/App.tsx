@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/theme/ThemeProvider';
@@ -8,6 +8,7 @@ import { registerForPush } from '@/native/push';
 import { requireBiometric } from '@/native/biometric';
 
 export default function App() {
+  const scheme = useColorScheme();
   useEffect(() => {
     requireBiometric('Unlock PPLM Bedside');
     registerForPush();
@@ -17,7 +18,7 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <StatusBar barStyle="dark-content" />
+          <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} />
           <Navigation />
         </ThemeProvider>
       </SafeAreaProvider>

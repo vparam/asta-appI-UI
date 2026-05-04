@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useTokens } from '@/theme/ThemeProvider';
 import { type } from '@/theme/typography';
 import { ConfidencePill as ConfidencePillT } from '@/data/types';
+import { Tooltip } from './Tooltip';
 
 type Props = {
   pill: ConfidencePillT;
@@ -50,14 +51,16 @@ export function ConfidencePill({ pill }: Props) {
   }`;
 
   return (
-    <View
-      style={[
-        styles.pill,
-        { backgroundColor: bg, borderColor: border, borderWidth: bg === 'transparent' ? 1 : 0.5 },
-      ]}
-    >
-      <Text style={[type.metadata, { color: colour, fontWeight: '600' }]}>{text}</Text>
-    </View>
+    <Tooltip kind="confidence" accessibilityLabel={text}>
+      <View
+        style={[
+          styles.pill,
+          { backgroundColor: bg, borderColor: border, borderWidth: bg === 'transparent' ? 1 : 0.5 },
+        ]}
+      >
+        <Text style={[type.metadata, { color: colour, fontWeight: '600' }]}>{text}</Text>
+      </View>
+    </Tooltip>
   );
 }
 

@@ -7,6 +7,12 @@ type Props = {
   text: string;
   /** Directive register uses a slightly heavier callout. Both registers wear the same accent. */
   register?: 'monitoring' | 'directive';
+  /**
+   * §16.4: when leading-scenario confidence is Low or scenarios are in conflict,
+   * surface the error-possibility footer here. Renders below the action sentence
+   * in a small mute italic line.
+   */
+  errorPossibilityFootnote?: boolean;
 };
 
 /**
@@ -14,7 +20,7 @@ type Props = {
  * Accent-tinted callout, semibold body weight. ≤15-word cap enforced via
  * a __DEV__ warning so copy authors notice immediately.
  */
-export function ActionLine({ text, register = 'monitoring' }: Props) {
+export function ActionLine({ text, register = 'monitoring', errorPossibilityFootnote }: Props) {
   const t = useTokens();
 
   if (__DEV__ && text.split(/\s+/).length > 15) {
@@ -30,6 +36,7 @@ export function ActionLine({ text, register = 'monitoring' }: Props) {
           borderLeftColor: t.accent.accentRule,
         },
       ]}
+      accessibilityLabel={`Clinical action: ${text}`}
     >
       <Text
         style={[
@@ -39,6 +46,11 @@ export function ActionLine({ text, register = 'monitoring' }: Props) {
       >
         {text}
       </Text>
+      {errorPossibilityFootnote && (
+        <Text style={[type.metadata, { color: t.text.mute, marginTop: 6, fontStyle: 'italic' }]}>
+          The system may produce incorrect or incomplete predictions, especially with missing data or unusual presentations.
+        </Text>
+      )}
     </View>
   );
 }

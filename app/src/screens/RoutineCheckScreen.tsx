@@ -18,6 +18,9 @@ type Props = {
  * Read-only header showing risk + state, then a vitals capture form.
  */
 export function RoutineCheckScreen({ token, onClose }: Props) {
+  // Token is part of the audit trail when this capture is saved.
+  // Wired to the rerun API when "Complete Check" is tapped.
+  void token;
   const t = useTokens();
   const [hr, setHr] = useState('57');
   const [spo2, setSpo2] = useState('100');
@@ -44,7 +47,7 @@ export function RoutineCheckScreen({ token, onClose }: Props) {
       <Card>
         <View style={styles.headerRow}>
           <Text style={[type.cardTitle, { color: t.text.body }]}>Routine Check Capture</Text>
-          <Text style={[type.metadata, { color: t.text.mute }]}>{nowIst()}</Text>
+          <Text style={[type.metadata, { color: t.text.mute }]}>{nowRelative()}</Text>
         </View>
 
         <CaptureRow icon="♥" lane="hr" title="Heart Rate" unit="bpm (60-100)" current={57} value={hr} onChangeText={setHr} />
@@ -150,8 +153,9 @@ function CaptureRow({
   );
 }
 
-function nowIst(): string {
-  return new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }).format(new Date()) + ' IST';
+function nowRelative(): string {
+  // §3.2: this surface is patient-context. Use relative form rather than an absolute clock time.
+  return 'Just now';
 }
 
 const styles = StyleSheet.create({

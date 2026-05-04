@@ -148,7 +148,9 @@ export const bed4Stable: PatientFile = {
     medicines: 0,
     allergies: 0,
     records: 0,
-    generatedAt: 'May 1, 03:33 PM',
+    // §3.2: relative form. Absolute timestamps in combination with ward+bed
+    // are a re-identification vector in small wards.
+    generatedAt: '12 m ago',
   },
   syncedSecondsAgo: 12,
 };

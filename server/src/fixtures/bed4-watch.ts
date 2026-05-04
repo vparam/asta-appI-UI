@@ -54,7 +54,8 @@ export const bed4Watch: PatientFile = {
     firedAt: '2026-05-02T02:14:27+05:30',
     headline: 'SpO2 trending falling — projected below 92% in ~60 min',
     routingChain: [
-      { name: 'Asha (you)', role: 'Bedside nurse', isCurrent: true },
+      // §3.2: even clinician names are minimised. "(you)" suffices for the current device user.
+      { name: '(you)', role: 'Bedside nurse', isCurrent: true },
       { name: 'Dr. Priya Rao', role: 'On-call physician', isCurrent: false },
       { name: 'Dr. Ramesh Iyer', role: 'ICU lead', isCurrent: false },
     ],

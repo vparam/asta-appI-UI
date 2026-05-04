@@ -77,9 +77,10 @@ export function OnboardingScreen({ onDone }: Props) {
     }
   };
 
+  // §19.3: Skip on cards 1-4 jumps to the required Privacy card (index 4).
+  // Privacy ack and Density pick must always be performed before reaching the live Roster.
   const skip = () => {
-    completeOnboarding();
-    onDone();
+    setStep(4);
   };
 
   return (

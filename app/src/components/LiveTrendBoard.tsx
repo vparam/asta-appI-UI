@@ -11,6 +11,7 @@ type Props = {
   history: Record<VitalLane, { tMin: number; value: number }[]>;
   forecasts: Forecast[];
   density: 'simple' | 'detailed';
+  syncedSecondsAgo?: number;
 };
 
 const TITLE: Record<VitalLane, string> = {
@@ -31,7 +32,7 @@ const THRESHOLDS: Record<VitalLane, { lower: number; baseline: number; upper: nu
 
 const GLYPH = { stable: '•', falling: '↓', rising: '↑' } as const;
 
-export function LiveTrendBoard({ vitals, history, forecasts, density }: Props) {
+export function LiveTrendBoard({ vitals, history, forecasts, density, syncedSecondsAgo }: Props) {
   const t = useTokens();
   const { width } = useWindowDimensions();
   const [page, setPage] = useState(0);
@@ -53,6 +54,8 @@ export function LiveTrendBoard({ vitals, history, forecasts, density }: Props) {
                 width={(cardW - 16) / 2}
                 height={80}
                 thresholds={THRESHOLDS[v.lane]}
+                syncedSecondsAgo={syncedSecondsAgo}
+                participatesInScrub={false}
               />
             </View>
           ))}
@@ -88,6 +91,7 @@ export function LiveTrendBoard({ vitals, history, forecasts, density }: Props) {
                 width={cardW}
                 height={180}
                 thresholds={THRESHOLDS[v.lane]}
+                syncedSecondsAgo={syncedSecondsAgo}
               />
             </View>
           );

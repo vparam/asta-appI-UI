@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { useTokens } from '@/theme/ThemeProvider';
 import { compose, SeverityState } from '@/theme/severity';
 import { type } from '@/theme/typography';
+import { Tooltip } from './Tooltip';
 
 type Props = {
   /** Severity state pill (STABLE / WATCH / CRITICAL) used in headers. */
@@ -14,6 +15,13 @@ type Props = {
   style?: ViewStyle;
 };
 
+/**
+ * §13.2 v2.7 + §19.31:
+ * - Stable: dot + word, no fill, no border (calm).
+ * - Watch:  warm pill with hairline border.
+ * - Critical: filled red pill with a bold filled-circle glyph alongside the
+ *             word (so the eye can identify state at arm's length in <1s).
+ */
 export function Pill({ severity, label, withDot, outlined, style }: Props) {
   const t = useTokens();
   const sev = severity ? compose(severity, t) : null;
@@ -29,15 +37,16 @@ export function Pill({ severity, label, withDot, outlined, style }: Props) {
 
   // Stable per §13.2 v2.7: dot only, no fill, no border.
   if (severity === 'stable') {
-    return (
+    const inner = (
       <View style={[styles.row, style]}>
         <View style={[styles.dot, { backgroundColor: t.severity.stable }]} />
         <Text style={[type.metadata, { color: t.severity.stable, fontWeight: '600' }]}>{label}</Text>
       </View>
     );
+    return <Tooltip kind="severity" accessibilityLabel={`${label} severity`}>{inner}</Tooltip>;
   }
 
-  return (
+  const inner = (
     <View
       style={[
         styles.pill,
@@ -49,10 +58,25 @@ export function Pill({ severity, label, withDot, outlined, style }: Props) {
         style,
       ]}
     >
-      {useDot && <View style={[styles.dot, { backgroundColor: colour, marginRight: 6 }]} />}
-      <Text style={[type.metadata, { color: colour, fontWeight: '600' }]}>{label}</Text>
+      {/* §19.31: critical pill carries a filled-circle glyph alongside the word. */}
+      {severity === 'critical' && (
+        <Text style={[type.metadata, { color: colour, marginRight: 6, fontWeight: '700' }]}>●</Text>
+      )}
+      {useDot && severity !== 'critical' && (
+        <View style={[styles.dot, { backgroundColor: colour, marginRight: 6 }]} />
+      )}
+      <Text
+        style={[
+          type.metadata,
+          { color: colour, fontWeight: severity === 'critical' ? '700' : '600' },
+        ]}
+      >
+        {label}
+      </Text>
     </View>
   );
+
+  return <Tooltip kind="severity" accessibilityLabel={`${label} severity`}>{inner}</Tooltip>;
 }
 
 const styles = StyleSheet.create({

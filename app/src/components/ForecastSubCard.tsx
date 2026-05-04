@@ -4,6 +4,7 @@ import { useTokens } from '@/theme/ThemeProvider';
 import { type } from '@/theme/typography';
 import { Forecast } from '@/data/types';
 import { ConfidencePill } from './ConfidencePill';
+import { Tooltip } from './Tooltip';
 
 const TITLE: Record<Forecast['lane'], string> = {
   hr: 'Heart Rate',
@@ -33,11 +34,14 @@ export function ForecastSubCard({ forecast }: { forecast: Forecast }) {
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Text style={[type.bodySemibold, { color: t.text.body }]}>{TITLE[forecast.lane]}</Text>
-          <View style={[styles.badge, { backgroundColor: t.surface.surface, borderColor: t.surface.hairline }]}>
-            <Text style={[type.mono, { fontSize: 10, color: t.text.mute }]}>TimesFM</Text>
-          </View>
+          <Tooltip kind="timesfm" accessibilityLabel="TimesFM forecast model — long-press for details">
+            <View style={[styles.badge, { backgroundColor: t.surface.surface, borderColor: t.surface.hairline }]}>
+              <Text style={[type.mono, { fontSize: 10, color: t.text.mute }]}>TimesFM</Text>
+            </View>
+          </Tooltip>
         </View>
-        <ConfidencePill pill={forecast.confidence} />
+        {/* §19.11: nested pills must not carry the uncertain-signal hint. */}
+        <ConfidencePill pill={{ ...forecast.confidence, showUncertainHint: false }} />
       </View>
       <Text style={[type.body, { color: t.text.body, marginTop: 8 }]}>{forecast.narrative}</Text>
       <View style={styles.horizons}>

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTokens } from '@/theme/ThemeProvider';
 import { type } from '@/theme/typography';
-import { PatientToken } from '@/data/types';
-import { Card } from '@/components/Card';
+import { PatientFile, PatientToken } from '@/data/types';
+import { api } from '@/data/api';
+import { telemetry } from '@/state/telemetry';
 
 const QUICK_ACTIONS = [
   'Patient summary',
@@ -18,25 +19,61 @@ const QUICK_ACTIONS = [
 
 type Message = { role: 'user' | 'assistant'; text: string };
 
-const SCRIPTED: Record<string, string> = {
-  'Patient summary':
-    'PT-9K2X (Bed 4, Trail ward) admitted ~5 days ago. Risk score 19/100, stable. Vitals: HR 57 ↓, SpO2 100, BP 132/90, MAP 104. No dominant high-risk trend in the retained vital window.',
-  'What could go wrong?':
-    'Leading scenario is Shock / sepsis progression at low confidence (17%). Perfusion may drop rapidly if hypotension, tachycardia, lactate, oliguria, or fever cluster. Monitor lactate, BP, urine output.',
-  'Explain confidence':
-    'Confidence percentages reflect ranking among modelled scenarios, not absolute probability. 17% means PPLM considers shock/sepsis the most likely of several scenarios — not that the patient has a 17% chance of crisis.',
-};
-
 type Props = { token: PatientToken; prefill?: string };
+
+function buildReply(action: string, p: PatientFile | null): string {
+  if (!p) {
+    return `(loading patient data — ${action})`;
+  }
+  switch (action) {
+    case 'Patient summary': {
+      const v = p.vitals.reduce<Record<string, string>>((m, x) => {
+        m[x.lane] = `${x.value}${x.unit === '%' ? '%' : ' ' + x.unit}`;
+        return m;
+      }, {});
+      return `${p.bed.token} (Bed ${p.bed.bed}, ${p.bed.ward}) ${p.bed.admittedRelative}. Risk score ${p.read.score}/100, ${p.read.state}. Vitals: HR ${v.hr}, SpO2 ${v.spo2}, BP ${v.sbp}/${v.dbp}, MAP ${v.map}. ${p.read.currentRead}`;
+    }
+    case 'What could go wrong?': {
+      const top = p.read.scenarios[0];
+      return `Leading scenario is ${top.title} at ${top.confidence.label} confidence (${top.confidence.percent}%). ${top.summary} ${top.actionHint}`;
+    }
+    case 'Explain confidence':
+      return 'Confidence percentages reflect ranking among modelled scenarios, not absolute probability. A low percent means the model considers this scenario the most likely of several — not that the patient has a low probability of crisis.';
+    case 'What data is missing?':
+      return p.read.scenarios[0].confidence.label === 'low'
+        ? 'Adding lactate, urine output, or recent labs would let the model narrow its distribution. Open Add Bedside Data on the Patient screen to enter values.'
+        : 'No specific input is needed right now — confidence is sufficient on the leading scenario.';
+    case 'Tests and procedures':
+      return p.read.scenarios[0].actionHint;
+    default:
+      return `(mock) PPLM would answer "${action}" using the cardiac, respiratory, and TimesFM model heads. Configured deployment will wire this to the production copilot.`;
+  }
+}
 
 export function ConversationScreen({ token, prefill }: Props) {
   const t = useTokens();
+  const [patient, setPatient] = useState<PatientFile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState(prefill ?? '');
 
+  useEffect(() => {
+    telemetry.emit('conversation_opened', { token });
+    api.patient(token).then(setPatient).catch(() => undefined);
+  }, [token]);
+
+  // If a prefill arrived from a chip tap on the Patient screen, send it once
+  // patient data is hydrated.
+  useEffect(() => {
+    if (prefill && patient) {
+      send(prefill);
+      setText('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient]);
+
   const send = (s: string) => {
     if (!s.trim()) return;
-    const reply = SCRIPTED[s] ?? `(mock) PPLM would answer "${s}" using the cardiac, respiratory, and TimesFM model heads. Configured deployment will wire this to the production copilot.`;
+    const reply = buildReply(s, patient);
     setMessages((m) => [...m, { role: 'user', text: s }, { role: 'assistant', text: reply }]);
     setText('');
   };
@@ -48,13 +85,17 @@ export function ConversationScreen({ token, prefill }: Props) {
     >
       <View style={styles.header}>
         <Text style={[type.cardTitle, { color: t.text.body }]}>Clinical Conversation</Text>
-        <Text style={[type.metadata, { color: t.text.mute }]}>{`Bed 4 · ${token}`}</Text>
+        <Text style={[type.metadata, { color: t.text.mute }]}>
+          {patient ? `Bed ${patient.bed.bed} · ${patient.bed.token}` : token}
+        </Text>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll}>
         {messages.map((m, i) => (
           <View
             key={i}
+            accessible
+            accessibilityLabel={`${m.role === 'user' ? 'You' : 'PPLM'}: ${m.text}`}
             style={[
               styles.bubble,
               {
@@ -74,6 +115,8 @@ export function ConversationScreen({ token, prefill }: Props) {
             key={c}
             onPress={() => send(c)}
             style={[styles.chip, { backgroundColor: t.surface.recess }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Quick action: ${c}`}
           >
             <Text style={[type.metadata, { color: t.accent.accent }]}>{c}</Text>
           </Pressable>
@@ -88,8 +131,14 @@ export function ConversationScreen({ token, prefill }: Props) {
           placeholderTextColor={t.text.faint}
           style={[styles.input, type.body, { color: t.text.body, backgroundColor: t.surface.recess }]}
           onSubmitEditing={() => send(text)}
+          accessibilityLabel="Conversation input"
         />
-        <Pressable onPress={() => send(text)} style={styles.send}>
+        <Pressable
+          onPress={() => send(text)}
+          style={styles.send}
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
+        >
           <Text style={[type.bodySemibold, { color: t.accent.accent }]}>Send</Text>
         </Pressable>
       </View>

@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTokens } from '@/theme/ThemeProvider';
 import { type } from '@/theme/typography';
-import { compose } from '@/theme/severity';
 import { RiskRead } from '@/data/types';
 import { Card } from './Card';
 import { RiskScore } from './RiskScore';
@@ -26,11 +25,16 @@ type Props = {
  */
 export function RiskSummaryCard({ read, density, receipts }: Props) {
   const t = useTokens();
-  const sev = compose(read.state, t);
   const scenario = read.scenarios[0];
+  const a11yLabel = `Risk score ${read.score} of 100, ${read.state}. ${read.currentRead} ${read.actionLine}. ${read.nextCheck}`;
 
   return (
-    <Card severity={read.state} style={{ padding: 16 }}>
+    <Card
+      severity={read.state}
+      style={{ padding: 16 }}
+      accessible
+      accessibilityLabel={a11yLabel}
+    >
       <View style={styles.scoreRow}>
         <View style={{ flex: 1 }}>
           <Text style={[type.smallCaps, { color: t.text.mute, marginBottom: 4 }]}>RISK SCORE</Text>
@@ -57,7 +61,18 @@ export function RiskSummaryCard({ read, density, receipts }: Props) {
       <Text style={[type.smallCaps, { color: t.text.mute, marginBottom: 4 }]}>CURRENT READ</Text>
       <Text style={[type.body, { color: t.text.body }]}>{read.currentRead}</Text>
 
-      <ActionLine text={read.actionLine} register={read.actionRegister} />
+      <ActionLine
+        text={read.actionLine}
+        register={read.actionRegister}
+        errorPossibilityFootnote={
+          // §16.4: surface the error-possibility footnote here when leading-scenario
+          // confidence is Low, or the top two scenarios are within 5 percentage points
+          // (model in conflict, no clear leader).
+          read.scenarios[0]?.confidence.label === 'low' ||
+          (read.scenarios.length > 1 &&
+            Math.abs(read.scenarios[0].confidence.percent - read.scenarios[1].confidence.percent) <= 5)
+        }
+      />
 
       {density === 'detailed' && (
         <View style={styles.subScores}>
@@ -88,11 +103,6 @@ export function RiskSummaryCard({ read, density, receipts }: Props) {
       <Text style={[type.metadata, { color: t.text.mute, marginTop: 12, fontStyle: 'italic' }]}>
         Decision-support only — verify with clinical judgement.
       </Text>
-
-      {/* Hide sev outside dev — keep variable used to silence ts unused. */}
-      <View accessibilityElementsHidden style={{ height: 0, overflow: 'hidden' }}>
-        <Text>{JSON.stringify(sev.scoreNumericStyle)}</Text>
-      </View>
     </Card>
   );
 }

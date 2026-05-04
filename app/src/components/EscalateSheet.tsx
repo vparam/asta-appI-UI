@@ -8,10 +8,11 @@ import { Button } from './Button';
 type Props = {
   event: AlertEvent;
   onDismiss: () => void;
+  onConfirmEscalate?: (target: { name: string; role: string }) => void;
 };
 
 /** Flow 1 Step 4 — escalation sheet with stacked role rows. */
-export function EscalateSheet({ event, onDismiss }: Props) {
+export function EscalateSheet({ event, onDismiss, onConfirmEscalate }: Props) {
   const t = useTokens();
   const [selected, setSelected] = useState<number>(
     event.routingChain.findIndex((r) => !r.isCurrent)
@@ -22,8 +23,11 @@ export function EscalateSheet({ event, onDismiss }: Props) {
   return (
     <Modal transparent visible animationType="slide" onRequestClose={onDismiss}>
       <View style={styles.scrim}>
-        <View style={[styles.sheet, { backgroundColor: t.surface.surface }]}>
-          <Pressable onPress={onDismiss} style={styles.cancel}>
+        <View
+          style={[styles.sheet, { backgroundColor: t.surface.surface }]}
+          accessibilityViewIsModal
+        >
+          <Pressable onPress={onDismiss} style={styles.cancel} accessibilityRole="button" accessibilityLabel="Cancel and dismiss">
             <Text style={[type.body, { color: t.text.mute }]}>✕ Cancel</Text>
           </Pressable>
           <Text style={[type.cardTitle, { color: t.text.body }]}>{`Escalate Bed ${event.bed.bed}`}</Text>
@@ -68,9 +72,12 @@ export function EscalateSheet({ event, onDismiss }: Props) {
 
           {target && (
             <Button
-              label={`Escalate to ${target.name}`}
+              label={`Escalate to ${target.name || target.role}`}
               variant="critical"
-              onPress={onDismiss}
+              onPress={() => {
+                onConfirmEscalate?.({ name: target.name, role: target.role });
+                onDismiss();
+              }}
               haptic="medium"
               fullWidth
               style={{ marginTop: 16 }}

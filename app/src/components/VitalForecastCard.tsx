@@ -9,6 +9,7 @@ import { ForecastSubCard } from './ForecastSubCard';
 type Props = {
   forecasts: Forecast[];
   density: 'simple' | 'detailed';
+  syncedSecondsAgo?: number;
 };
 
 /**
@@ -16,12 +17,28 @@ type Props = {
  * Default-collapsed when nothing is at risk; auto-expanded when at least one
  * vital crosses a threshold. Detailed density forces expanded with all vitals.
  */
-export function VitalForecastCard({ forecasts, density }: Props) {
+export function VitalForecastCard({ forecasts, density, syncedSecondsAgo = 0 }: Props) {
   const t = useTokens();
+  const stale = syncedSecondsAgo > 120;
   const atRiskForecasts = forecasts.filter((f) => f.atRisk);
   const hasAtRisk = atRiskForecasts.length > 0;
 
   const [showAll, setShowAll] = useState(density === 'detailed' || !hasAtRisk);
+
+  // §19.28 + §7.6: when feed is stale, the forecast region is erased — not faded —
+  // and the card collapses to a single line.
+  if (stale) {
+    return (
+      <Card>
+        <View style={styles.calmRow}>
+          <Text style={[type.bodySemibold, { color: t.text.body }]}>Vital Forecast</Text>
+          <Text style={[type.body, { color: t.severity.watch, fontStyle: 'italic' }]}>
+            Forecast unavailable — feed stale
+          </Text>
+        </View>
+      </Card>
+    );
+  }
 
   if (!hasAtRisk && density === 'simple' && !showAll) {
     return (

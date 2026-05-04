@@ -37,8 +37,16 @@ export function VitalTile({ reading, onPress }: Props) {
   const laneColour = t.vital[reading.lane];
   const interpColour = reading.outOfRange ? t.severity.watch : t.text.mute;
 
+  const a11y = `${TITLE[reading.lane]}: ${reading.value} ${reading.unit}, ${reading.direction}. ${reading.interpretation}`;
+
   return (
-    <Pressable onPress={onPress} style={{ flex: 1 }} accessibilityRole="button">
+    <Pressable
+      onPress={onPress}
+      style={{ flex: 1 }}
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      accessibilityHint="Tap to open trend chart"
+    >
       <Card style={styles.card}>
         <View style={styles.header}>
           <Text style={[type.bodySemibold, { color: t.text.body }]}>{TITLE[reading.lane]}</Text>

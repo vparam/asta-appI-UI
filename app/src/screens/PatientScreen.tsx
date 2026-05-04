@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTokens } from '@/theme/ThemeProvider';
 import { type } from '@/theme/typography';
 import { useDensity } from '@/state/density';
+import { lastViewed } from '@/state/lastViewed';
+import { telemetry } from '@/state/telemetry';
 import { api } from '@/data/api';
-import { PatientFile, PatientToken } from '@/data/types';
+import { PatientFile, PatientToken, VitalReading } from '@/data/types';
 import { PatientHeader } from '@/components/PatientHeader';
 import { RiskSummaryCard } from '@/components/RiskSummaryCard';
 import { ActiveAlertStrip } from '@/components/ActiveAlertStrip';
@@ -18,44 +21,117 @@ import { ConversationEntry } from '@/components/ConversationEntry';
 import { Button } from '@/components/Button';
 import { DensitySheet } from '@/components/DensitySheet';
 import { EscalateSheet } from '@/components/EscalateSheet';
+import { WhatsNewBanner } from '@/components/WhatsNewBanner';
+import { computeChangedSince } from '@/data/diff';
+import { useAutoEscalation } from '@/state/escalationTimer';
 
 type Props = {
   token: PatientToken;
   /** Optional event ID — when present, scrolls to the event marker on load. */
   eventId?: string;
+  /** When true, opens the EscalateSheet immediately (used by notification escalate quick action). */
+  openEscalateSheet?: boolean;
   navigation: { navigate: (screen: string, params?: unknown) => void; goBack: () => void };
 };
 
-export function PatientScreen({ token, navigation }: Props) {
+type Receipts = { score?: string; confidence?: string };
+
+export function PatientScreen({ token, eventId, openEscalateSheet, navigation }: Props) {
   const t = useTokens();
   const { density, set: setDensity } = useDensity();
   const [patient, setPatient] = useState<PatientFile | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reRunning, setRerunning] = useState(false);
-  const [receipts, setReceipts] = useState<{ score?: string; confidence?: string } | undefined>();
+  const [receipts, setReceipts] = useState<Receipts | undefined>();
   const [acknowledged, setAcknowledged] = useState(false);
   const [showDensity, setShowDensity] = useState(false);
-  const [showEscalate, setShowEscalate] = useState(false);
+  const [showEscalate, setShowEscalate] = useState(!!openEscalateSheet);
+  const [showFutureRisk, setShowFutureRisk] = useState(false);
   const [contextualPrompt, setContextualPrompt] = useState<string | undefined>();
+  const [whatsNew, setWhatsNew] = useState<{ minutesAgo: number; changes: VitalReading[] } | undefined>();
 
-  const load = React.useCallback(() => {
-    setRefreshing(true);
-    api
-      .patient(token)
-      .then((p) => {
-        setPatient(p);
-        // §7.10: surface a contextual prompt only when the model has a reason to.
-        const hasLowConfidence = p.read.scenarios.some((s) => s.confidence.label === 'low');
-        if (hasLowConfidence) {
-          setContextualPrompt('Adding lactate or urine output may improve this prediction');
-        } else {
-          setContextualPrompt(undefined);
-        }
-      })
-      .finally(() => setRefreshing(false));
-  }, [token]);
+  const scrollRef = useRef<ScrollView>(null);
+  const alertStripY = useRef<number>(0);
 
-  useEffect(load, [load]);
+  const load = useCallback(
+    (opts?: { showRefreshing?: boolean }) => {
+      if (opts?.showRefreshing !== false) setRefreshing(true);
+      return api
+        .patient(token)
+        .then((p) => {
+          // Compute "what's new since last check" before storing the new patient.
+          const last = lastViewed.get(token);
+          if (last) {
+            const minutesAgo = Math.round((Date.now() - last.viewedAt) / 60000);
+            if (minutesAgo > 5) {
+              const changes = computeChangedSince(last.snapshot, p.vitals);
+              if (changes.length > 0) setWhatsNew({ minutesAgo, changes });
+            }
+          }
+          setPatient(p);
+          // §7.10 contextual prompt: only when the model has a reason to ask.
+          const hasLowConfidence = p.read.scenarios.some((s) => s.confidence.label === 'low');
+          const stale = p.context.generatedAt.includes('h ago') || p.context.generatedAt.includes('day');
+          if (hasLowConfidence && stale) {
+            setContextualPrompt('Lactate from earlier this shift may sharpen the read');
+          } else if (hasLowConfidence) {
+            setContextualPrompt('Adding lactate or urine output may improve this prediction');
+          } else {
+            setContextualPrompt(undefined);
+          }
+          return p;
+        })
+        .finally(() => setRefreshing(false));
+    },
+    [token]
+  );
+
+  // First load.
+  useEffect(() => {
+    load({ showRefreshing: false });
+    telemetry.emit('patient_screen_open', { token });
+  }, [load, token]);
+
+  // Track last-viewed timestamp per (user, patient) on every focus.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (patient) lastViewed.set(token, patient.vitals);
+      };
+    }, [patient, token])
+  );
+
+  // Scroll to the alerting event when arriving from a push.
+  useEffect(() => {
+    if (!eventId || !patient) return;
+    if (patient.activeAlert?.id === eventId) {
+      const t0 = Date.now();
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ y: alertStripY.current, animated: true });
+        telemetry.emit('alert_landing_time_ms', { token, eventId, durationMs: Date.now() - t0 });
+      });
+    }
+  }, [eventId, patient, token]);
+
+  // App freshness: §12.3 — auto-rerun when foregrounded after >60s in background.
+  // (Hooked at the App level in production; the navigation state change here is a proxy.)
+
+  // §19.33: 90s auto-escalation for unacknowledged criticals.
+  useAutoEscalation(patient?.activeAlert, acknowledged, (nextRole) => {
+    setPatient((p) => {
+      if (!p?.activeAlert) return p;
+      const newChain = p.activeAlert.routingChain.map((r) =>
+        r.role === nextRole ? { ...r, isCurrent: true } : { ...r, isCurrent: false }
+      );
+      return {
+        ...p,
+        activeAlert: { ...p.activeAlert, routingChain: newChain },
+      };
+    });
+    if (patient?.activeAlert) {
+      api.acknowledgeAlert(patient.activeAlert.id, 'in-app').catch(() => undefined);
+    }
+  });
 
   if (!patient) {
     return (
@@ -65,19 +141,47 @@ export function PatientScreen({ token, navigation }: Props) {
     );
   }
 
-  const rerun = async () => {
+  const ackAlert = async () => {
+    if (!patient.activeAlert) return;
+    setAcknowledged(true);
+    telemetry.emit('alert_acknowledged', { eventId: patient.activeAlert.id, via: 'in-app' });
+    try {
+      await api.acknowledgeAlert(patient.activeAlert.id, 'in-app');
+    } catch {
+      /* offline — queued by api client */
+    }
+  };
+
+  const rerun = async (lactate?: number) => {
     setRerunning(true);
     try {
-      const r = await api.rerun(token, { lactate: 2.4 });
+      const r = await api.rerun(token, lactate ? { lactate } : {});
       setPatient(r.patient);
-      setReceipts({
-        score: r.receipts.score?.copy,
-        confidence: r.receipts.confidence?.copy,
-      });
+      const next: Receipts = {};
+      if (r.receipts.score) next.score = r.receipts.score.copy;
+      if (r.receipts.confidence) next.confidence = r.receipts.confidence.copy;
+      setReceipts(next);
+      telemetry.emit('rerun_completed', { token, scoreFrom: r.receipts.score?.from, scoreTo: r.receipts.score?.to });
       setTimeout(() => setReceipts(undefined), 6000);
     } finally {
       setRerunning(false);
     }
+  };
+
+  const openAddBedsideData = () => {
+    // Pass a callback the modal will call after rerun completes — refreshes
+    // this screen and surfaces the receipts (§19.25, §19.26).
+    navigation.navigate('AddBedsideData', {
+      token,
+      onRerunComplete: (r: { patient: PatientFile; receipts: { score?: { copy: string }; confidence?: { copy: string } } }) => {
+        setPatient(r.patient);
+        const next: Receipts = {};
+        if (r.receipts.score) next.score = r.receipts.score.copy;
+        if (r.receipts.confidence) next.confidence = r.receipts.confidence.copy;
+        setReceipts(next);
+        setTimeout(() => setReceipts(undefined), 6000);
+      },
+    });
   };
 
   const tilePairs: typeof patient.vitals[] = [];
@@ -93,7 +197,8 @@ export function PatientScreen({ token, navigation }: Props) {
         syncedSecondsAgo={patient.syncedSecondsAgo}
         density={density}
         onChangeDensity={() => setShowDensity(true)}
-        onRerun={rerun}
+        onRerun={() => rerun()}
+        onOpenSettings={() => navigation.navigate('Settings')}
       />
       {reRunning && (
         <View style={[styles.banner, { backgroundColor: t.accent.accentBg }]}>
@@ -104,18 +209,40 @@ export function PatientScreen({ token, navigation }: Props) {
         </View>
       )}
 
+      {whatsNew && (
+        <WhatsNewBanner
+          minutesAgo={whatsNew.minutesAgo}
+          changes={whatsNew.changes}
+          onDismiss={() => setWhatsNew(undefined)}
+          onTapVital={(lane) => {
+            navigation.navigate('VitalsTrend', { token, lane });
+            setWhatsNew(undefined);
+          }}
+        />
+      )}
+
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load()} />}
       >
         <RiskSummaryCard read={patient.read} density={density} receipts={receipts} />
 
         {patient.activeAlert && !acknowledged && (
-          <ActiveAlertStrip
-            event={patient.activeAlert}
-            onAcknowledge={() => setAcknowledged(true)}
-            onEscalate={() => setShowEscalate(true)}
-          />
+          <View
+            onLayout={(e) => {
+              alertStripY.current = e.nativeEvent.layout.y;
+            }}
+          >
+            <ActiveAlertStrip
+              event={patient.activeAlert}
+              onAcknowledge={ackAlert}
+              onEscalate={() => {
+                setShowEscalate(true);
+                telemetry.emit('alert_escalate_opened', { eventId: patient.activeAlert!.id });
+              }}
+            />
+          </View>
         )}
 
         <Text style={[type.smallCaps, { color: t.text.mute, marginTop: 8, marginHorizontal: 4 }]}>
@@ -142,39 +269,48 @@ export function PatientScreen({ token, navigation }: Props) {
           history={patient.vitalHistory}
           forecasts={patient.forecasts}
           density={density}
+          syncedSecondsAgo={patient.syncedSecondsAgo}
         />
 
-        <VitalForecastCard forecasts={patient.forecasts} density={density} />
+        <VitalForecastCard
+          forecasts={patient.forecasts}
+          density={density}
+          syncedSecondsAgo={patient.syncedSecondsAgo}
+        />
 
-        <ScenarioMatrixCard scenarios={patient.read.scenarios} density={density} />
+        <ScenarioMatrixCard scenarios={patient.read.scenarios} density={density} patientToken={token} />
 
-        <Card>
-          <Text style={[type.cardTitle, { color: t.text.body }]}>Future Risk / Medication Safety</Text>
-          {density === 'detailed' ? (
-            <>
-              <Text style={[type.smallCaps, { color: t.text.mute, marginTop: 8 }]}>RISK TRAJECTORY</Text>
-              <Text style={[type.body, { color: t.text.body, marginTop: 4 }]}>
-                {patient.read.scenarios[0].title} remains the leading future-risk lane.{' '}
-                {patient.read.scenarios[0].rationaleMobile}
-              </Text>
-              <Text style={[type.smallCaps, { color: t.text.mute, marginTop: 12 }]}>MEDICATION CONSTRAINTS</Text>
-              <Text style={[type.body, { color: t.text.body, marginTop: 4 }]}>
-                Antibiotic / vasopressor / fluid decisions require clinician diagnosis, local sepsis protocol, allergies, cultures, BP response, and renal/cardiac context.
-              </Text>
-            </>
-          ) : (
-            <Text style={[type.body, { color: t.text.mute, marginTop: 8 }]}>Tap to expand ▾</Text>
-          )}
-        </Card>
+        <Pressable
+          onPress={() => setShowFutureRisk((x) => !x)}
+          accessibilityRole="button"
+          accessibilityLabel={showFutureRisk ? 'Collapse Future Risk and Medication Safety' : 'Expand Future Risk and Medication Safety'}
+        >
+          <Card>
+            <View style={styles.futureRiskHeader}>
+              <Text style={[type.cardTitle, { color: t.text.body }]}>Future Risk / Medication Safety</Text>
+              <Text style={[type.body, { color: t.text.mute }]}>{showFutureRisk || density === 'detailed' ? '▾' : '▸'}</Text>
+            </View>
+            {(density === 'detailed' || showFutureRisk) && (
+              <>
+                <Text style={[type.smallCaps, { color: t.text.mute, marginTop: 8 }]}>RISK TRAJECTORY</Text>
+                <Text style={[type.body, { color: t.text.body, marginTop: 4 }]}>
+                  {patient.read.scenarios[0].title} remains the leading future-risk lane.{' '}
+                  {patient.read.scenarios[0].rationaleMobile}
+                </Text>
+                <Text style={[type.smallCaps, { color: t.text.mute, marginTop: 12 }]}>MEDICATION CONSTRAINTS</Text>
+                <Text style={[type.body, { color: t.text.body, marginTop: 4 }]}>
+                  Antibiotic / vasopressor / fluid decisions require clinician diagnosis, local sepsis protocol, allergies, cultures, BP response, and renal/cardiac context.
+                </Text>
+              </>
+            )}
+          </Card>
+        </Pressable>
 
         <Text style={[type.metadata, { color: t.text.mute, marginVertical: 8, textAlign: 'center' }]}>
           {`Medicines: ${patient.context.medicines} · Allergies: ${patient.context.allergies} · Records: ${patient.context.records} · Generated ${patient.context.generatedAt}`}
         </Text>
 
-        <AddBedsideDataRow
-          prompt={contextualPrompt}
-          onPress={() => navigation.navigate('AddBedsideData', { token })}
-        />
+        <AddBedsideDataRow prompt={contextualPrompt} onPress={openAddBedsideData} />
 
         <ConversationEntry
           onOpenFullScreen={() => navigation.navigate('Conversation', { token })}
@@ -182,7 +318,7 @@ export function PatientScreen({ token, navigation }: Props) {
         />
 
         <View style={styles.actionRow}>
-          <Button label="⟳ Rerun" variant="outlined" onPress={rerun} fullWidth style={{ flex: 1 }} />
+          <Button label="⟳ Rerun" variant="outlined" onPress={() => rerun()} fullWidth style={{ flex: 1 }} />
           <View style={{ width: 8 }} />
           <Button label="↗ Open in Pro" variant="outlined" fullWidth style={{ flex: 1 }} />
           <View style={{ width: 8 }} />
@@ -196,6 +332,7 @@ export function PatientScreen({ token, navigation }: Props) {
           onPick={(d) => {
             setDensity(d);
             setShowDensity(false);
+            telemetry.emit('density_changed', { density: d });
           }}
           onDismiss={() => setShowDensity(false)}
         />
@@ -205,6 +342,12 @@ export function PatientScreen({ token, navigation }: Props) {
         <EscalateSheet
           event={patient.activeAlert}
           onDismiss={() => setShowEscalate(false)}
+          onConfirmEscalate={(target) => {
+            telemetry.emit('alert_escalated', { eventId: patient.activeAlert!.id, role: target.role });
+            api.acknowledgeAlert(patient.activeAlert!.id, 'in-app').catch(() => undefined);
+            setShowEscalate(false);
+            setAcknowledged(true);
+          }}
         />
       )}
     </View>
@@ -220,4 +363,5 @@ const styles = StyleSheet.create({
   tileRow: { flexDirection: 'row', gap: 8 },
   tileCell: { flex: 1 },
   actionRow: { flexDirection: 'row', marginTop: 8 },
+  futureRiskHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 });
