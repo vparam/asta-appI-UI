@@ -56,6 +56,7 @@ export function LiveTrendBoard({ vitals, history, forecasts, density, syncedSeco
                 thresholds={THRESHOLDS[v.lane]}
                 syncedSecondsAgo={syncedSecondsAgo}
                 participatesInScrub={false}
+                reading={{ value: v.value, unit: v.unit, direction: v.direction, interpretation: v.interpretation }}
               />
             </View>
           ))}
@@ -92,6 +93,7 @@ export function LiveTrendBoard({ vitals, history, forecasts, density, syncedSeco
                 height={180}
                 thresholds={THRESHOLDS[v.lane]}
                 syncedSecondsAgo={syncedSecondsAgo}
+                reading={{ value: v.value, unit: v.unit, direction: v.direction, interpretation: v.interpretation }}
               />
             </View>
           );

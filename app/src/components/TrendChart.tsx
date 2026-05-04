@@ -23,6 +23,11 @@ type Props = {
   syncedSecondsAgo?: number;
   /** When false, this chart's gestures don't update the shared scrub context. */
   participatesInScrub?: boolean;
+  /**
+   * §19.34 accessibility — supply the latest reading and clinical interpretation
+   * so VoiceOver/TalkBack expose a structured summary, not just a sample count.
+   */
+  reading?: { value: number; unit: string; direction: 'stable' | 'falling' | 'rising'; interpretation: string };
 };
 
 /**
@@ -48,6 +53,7 @@ export function TrendChart({
   thresholds,
   syncedSecondsAgo = 0,
   participatesInScrub = true,
+  reading,
 }: Props) {
   const t = useTokens();
   const padTop = 8;
@@ -126,9 +132,19 @@ export function TrendChart({
   return (
     <View
       {...responder.panHandlers}
-      accessibilityLabel={`${lane.toUpperCase()} trend chart, ${history.length} samples${
-        stale ? ', forecast unavailable — feed stale' : ''
-      }`}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={
+        // §19.34: structured chart summary — current value, direction, interpretation,
+        // sample count, forecast availability. Read aloud by VoiceOver/TalkBack.
+        reading
+          ? `${lane.toUpperCase()} trend chart: latest ${reading.value} ${reading.unit}, ${reading.direction}. ${reading.interpretation}. ${history.length} samples retained.${
+              stale ? ' Forecast unavailable — feed stale.' : forecast && forecast.length > 0 ? ' Forecast band present.' : ''
+            }`
+          : `${lane.toUpperCase()} trend chart, ${history.length} samples${
+              stale ? ', forecast unavailable — feed stale' : ''
+            }`
+      }
     >
       <Svg width={width} height={height}>
         {/* Y-axis threshold labels */}

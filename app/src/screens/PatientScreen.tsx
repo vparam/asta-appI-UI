@@ -51,7 +51,10 @@ export function PatientScreen({ token, eventId, openEscalateSheet, navigation }:
   const [whatsNew, setWhatsNew] = useState<{ minutesAgo: number; changes: VitalReading[] } | undefined>();
 
   const scrollRef = useRef<ScrollView>(null);
-  const alertStripY = useRef<number>(0);
+  const alertStripY = useRef<number | null>(null);
+  const landingDeadline = useRef<number>(Date.now());
+  const scrollFired = useRef<boolean>(false);
+  const receiptsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(
     (opts?: { showRefreshing?: boolean }) => {
@@ -101,17 +104,30 @@ export function PatientScreen({ token, eventId, openEscalateSheet, navigation }:
     }, [patient, token])
   );
 
-  // Scroll to the alerting event when arriving from a push.
+  // Reset the scroll-target latch whenever a new eventId arrives.
   useEffect(() => {
-    if (!eventId || !patient) return;
-    if (patient.activeAlert?.id === eventId) {
-      const t0 = Date.now();
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({ y: alertStripY.current, animated: true });
-        telemetry.emit('alert_landing_time_ms', { token, eventId, durationMs: Date.now() - t0 });
-      });
+    if (eventId) {
+      scrollFired.current = false;
+      landingDeadline.current = Date.now();
+      // If layout already happened (warm reopen), fire immediately.
+      if (alertStripY.current !== null && patient?.activeAlert?.id === eventId) {
+        scrollAndReport();
+      }
     }
-  }, [eventId, patient, token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, patient?.activeAlert?.id]);
+
+  const scrollAndReport = useCallback(() => {
+    if (scrollFired.current) return;
+    if (alertStripY.current === null) return;
+    scrollFired.current = true;
+    scrollRef.current?.scrollTo({ y: alertStripY.current, animated: true });
+    telemetry.emit('alert_landing_time_ms', {
+      token,
+      eventId: eventId ?? '',
+      durationMs: Date.now() - landingDeadline.current,
+    });
+  }, [token, eventId]);
 
   // App freshness: §12.3 — auto-rerun when foregrounded after >60s in background.
   // (Hooked at the App level in production; the navigation state change here is a proxy.)
@@ -152,6 +168,19 @@ export function PatientScreen({ token, eventId, openEscalateSheet, navigation }:
     }
   };
 
+  const showReceiptsFor6Seconds = (next: Receipts) => {
+    setReceipts(next);
+    if (receiptsTimer.current) clearTimeout(receiptsTimer.current);
+    receiptsTimer.current = setTimeout(() => setReceipts(undefined), 6000);
+  };
+
+  // Cleanup the receipts timer on unmount so we don't setState on a dead component.
+  useEffect(() => {
+    return () => {
+      if (receiptsTimer.current) clearTimeout(receiptsTimer.current);
+    };
+  }, []);
+
   const rerun = async (lactate?: number) => {
     setRerunning(true);
     try {
@@ -160,9 +189,8 @@ export function PatientScreen({ token, eventId, openEscalateSheet, navigation }:
       const next: Receipts = {};
       if (r.receipts.score) next.score = r.receipts.score.copy;
       if (r.receipts.confidence) next.confidence = r.receipts.confidence.copy;
-      setReceipts(next);
+      showReceiptsFor6Seconds(next);
       telemetry.emit('rerun_completed', { token, scoreFrom: r.receipts.score?.from, scoreTo: r.receipts.score?.to });
-      setTimeout(() => setReceipts(undefined), 6000);
     } finally {
       setRerunning(false);
     }
@@ -178,8 +206,7 @@ export function PatientScreen({ token, eventId, openEscalateSheet, navigation }:
         const next: Receipts = {};
         if (r.receipts.score) next.score = r.receipts.score.copy;
         if (r.receipts.confidence) next.confidence = r.receipts.confidence.copy;
-        setReceipts(next);
-        setTimeout(() => setReceipts(undefined), 6000);
+        showReceiptsFor6Seconds(next);
       },
     });
   };
@@ -232,6 +259,11 @@ export function PatientScreen({ token, eventId, openEscalateSheet, navigation }:
           <View
             onLayout={(e) => {
               alertStripY.current = e.nativeEvent.layout.y;
+              // §19.5: scroll runs ONCE, after the strip is laid out and only when
+              // we arrived from a push (eventId matches the active alert).
+              if (eventId && patient.activeAlert?.id === eventId) {
+                scrollAndReport();
+              }
             }}
           >
             <ActiveAlertStrip

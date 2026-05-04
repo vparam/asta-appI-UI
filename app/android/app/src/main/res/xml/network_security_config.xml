@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Production builds require TLS for all traffic. The dev-only carve-out for
+  localhost (mock REST server) is gated by build type — not present here.
+  Add the localhost rule via a debug-only manifest overlay in app/src/debug/.
+-->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+  <domain-config>
+    <domain includeSubdomains="true">app.astahealthtech.com</domain>
+    <pin-set>
+      <!-- Pin replaced with real certificate hash before production. -->
+      <pin digest="SHA-256">REPLACE_BEFORE_PRODUCTION_RELEASE_PIN_HASH=</pin>
+    </pin-set>
+  </domain-config>
+</network-security-config>

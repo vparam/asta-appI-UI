@@ -17,8 +17,11 @@ type Props = {
  * Simple density: top scenario only, "See N alternatives" link below.
  * Detailed density: top THREE scenarios visible (collapsed); chevron expands each row.
  *
- * §19.22: only the top scenario is shown by default — Detailed widens the
- * default-visible window to 3 but each row remains collapsed until tapped.
+ * §19.16 + §19.22: only the top scenario is shown by default. Tapping
+ * "See N alternatives" reveals the rest AND auto-expands them so any
+ * row's Why/Checks/Feedback detail is reachable in two taps total
+ * (alternatives → row body). The top row stays collapsed by default —
+ * one tap from default for its detail.
  */
 export function ScenarioMatrixCard({ scenarios, density, patientToken }: Props) {
   const t = useTokens();
@@ -32,7 +35,15 @@ export function ScenarioMatrixCard({ scenarios, density, patientToken }: Props) 
     <Card>
       <Text style={[type.cardTitle, { color: t.text.body, marginBottom: 8 }]}>Scenario Prediction Matrix</Text>
       {visible.map((s, i) => (
-        <ScenarioRow key={s.id} scenario={s} isTopScenario={i === 0} patientToken={patientToken} />
+        <ScenarioRow
+          key={s.id}
+          scenario={s}
+          isTopScenario={i === 0}
+          patientToken={patientToken}
+          // §19.16: when the user has revealed alternatives, those rows are
+          // auto-expanded so detail is two taps from default (See alternatives → row).
+          defaultExpanded={expanded && i >= baseCount}
+        />
       ))}
       {remaining > 0 && (
         <Pressable

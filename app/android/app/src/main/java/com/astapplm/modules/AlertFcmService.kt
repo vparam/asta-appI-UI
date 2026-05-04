@@ -56,7 +56,9 @@ class AlertFcmService : FirebaseMessagingService() {
     bed: String,
   ) {
     val channelId = if (severity == "critical") "pplm_critical" else "pplm_watch"
-    val title = "PPLM · ${severity.uppercase()} · Bed $bed"
+    // §5.2 / §19.6: title = severity tag only. Body = interpretation. Subtitle = ward + bed + token.
+    // Ward and bed identifier appear ONLY on the subtitle line, never on the title.
+    val title = "PPLM · ${severity.uppercase()}"
     val subtitle = "$ward · Bed $bed · $token"
 
     // Body intent — deep-links to astapplm://patient/<token>?event_id=<id>

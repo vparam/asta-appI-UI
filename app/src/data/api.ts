@@ -85,6 +85,9 @@ export const api = {
     post<{ ok: true; via: string }>(`/alerts/${eventId}/ack`, { via }, { queueOnFailure: true }),
   scenarioFeedback: (token: PatientToken, scenarioId: string, kind: 'confirm' | 'false' | 'uncertain') =>
     post<{ ok: true }>(`/patients/${token}/feedback`, { scenarioId, kind }, { queueOnFailure: true }),
+  /** §19.3: privacy acknowledgement audit row. Account identifier is hashed server-side. */
+  privacyAck: (appVersion: string) =>
+    post<{ ok: true }>('/privacy/ack', { appVersion }, { queueOnFailure: true }),
   setDevState: (state: 'stable' | 'watch' | 'critical') =>
     post<{ state: string }>('/dev/state', { state }),
   testPush: (token: PatientToken, severity: 'watch' | 'critical') =>

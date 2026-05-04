@@ -28,7 +28,8 @@ export type TelemetryEvent =
   | { name: 'conversation_opened'; props: { token: string } }
   | { name: 'whats_new_shown'; props: { token: string; minutesAgo: number; vitalCount: number } }
   | { name: 'whats_new_dismissed'; props: { token: string } }
-  | { name: 'tooltip_opened'; props: { kind: 'confidence' | 'timesfm' | 'severity' | 'risk_score' } };
+  | { name: 'tooltip_opened'; props: { kind: 'confidence' | 'timesfm' | 'severity' | 'risk_score' } }
+  | { name: 'privacy_ack'; props: { appVersion: string } };
 
 type EventName = TelemetryEvent['name'];
 type PropsOf<N extends EventName> = Extract<TelemetryEvent, { name: N }>['props'];

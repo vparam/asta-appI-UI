@@ -73,7 +73,12 @@ export function assertNoPii(obj: unknown, path = '$'): void {
   }
 }
 
-/** Validates that a patient identifier string is the opaque-token shape. */
+/**
+ * Validates that a patient identifier string is the opaque-token shape.
+ * Accepts 4-12 char [A-Z0-9] suffix — the production generator emits at
+ * least 4, hospital migrations may carry longer legacy IDs. Requires
+ * uppercase to make pattern explicit; lowercase tokens are NOT accepted.
+ */
 export function isPatientToken(s: string): s is `PT-${string}` {
-  return /^PT-[A-Z0-9]{4}$/.test(s);
+  return /^PT-[A-Z0-9]{4,12}$/.test(s);
 }

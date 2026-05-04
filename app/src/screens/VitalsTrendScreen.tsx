@@ -118,6 +118,8 @@ export function VitalsTrendScreen({ token, initialLane = 'hr' }: Props) {
           width={width - 64}
           height={220}
           thresholds={THRESHOLDS[lane]}
+          reading={{ value: reading.value, unit: reading.unit, direction: reading.direction, interpretation: reading.interpretation }}
+          syncedSecondsAgo={patient.syncedSecondsAgo}
         />
       </Card>
 

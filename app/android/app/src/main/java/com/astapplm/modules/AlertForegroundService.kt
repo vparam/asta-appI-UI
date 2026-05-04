@@ -24,9 +24,10 @@ class AlertForegroundService : Service() {
     val severity = intent?.getStringExtra("severity") ?: "watch"
     val headline = intent?.getStringExtra("headline") ?: ""
 
+    // §5.2 / §19.6: title carries severity only; ward/bed/token live in the subText.
     val notif: Notification = NotificationCompat.Builder(this, "pplm_critical")
       .setSmallIcon(android.R.drawable.ic_dialog_alert)
-      .setContentTitle("PPLM · ${severity.uppercase()} · Bed $bed")
+      .setContentTitle("PPLM · ${severity.uppercase()}")
       .setContentText(headline)
       .setSubText("$ward · Bed $bed · $token")
       .setOngoing(true)

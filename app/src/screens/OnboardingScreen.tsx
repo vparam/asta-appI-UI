@@ -30,9 +30,12 @@ const CARDS: Card[] = [
       'Solid trace lines are measurements. Dotted lines past the now line are forecasts. The shaded band around a forecast is the model’s uncertainty — wider bands mean less certain. If the feed goes stale, the forecast is erased, not faded.',
   },
   {
+    // §19.29 + §16.5: this card carries the explicit Clinical Responsibility
+    // statement. Surfaced on its own card during first-run, plus linked from
+    // every Action Line via long-press, plus catalogued in Settings → About PPLM.
     headline: 'When to trust, when to override',
     body:
-      'The Confirm / False / Uncertain buttons on each scenario teach the model. Use them. Your feedback compounds — within weeks the suppression thresholds for false-positives in your ward are tuned to your hospital’s case mix. The model gets better only if you push back when it is wrong.',
+      'Final clinical decisions must always be made by the treating clinician. PPLM is a supporting tool — use the Confirm / False / Uncertain buttons on each scenario to teach the model when it is wrong. Your feedback compounds: within weeks the suppression thresholds for false-positive alerts in your ward are tuned to your hospital&apos;s case mix.',
   },
   {
     headline: 'Privacy and identification',

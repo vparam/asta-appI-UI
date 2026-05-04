@@ -2,10 +2,12 @@
 // PPLM Mobile Bedside — APNs registration, deep-link handoff, ack from notification.
 // Spec §5 (push pipeline), §5.3 (payload schema), §5.4 (acknowledge / escalate).
 //
-// IMPORTANT (spec §5.2): the notification body NEVER contains a patient name.
-// Title:     "PPLM · WATCH · Bed 4"
+// IMPORTANT (spec §5.2 / §19.6): the notification body NEVER contains a patient name.
+// Title:     "PPLM · WATCH"               — severity tag only
 // Body:      "Possible early sepsis pattern — monitor lactate, BP, urine"
+//                                         — interpretation, not data
 // Subtitle:  "Trail ward · Bed 4 · Risk 19/100 · PT-9K2X"
+//                                         — ward + bed + token live ONLY here
 // All three are populated server-side. This module only routes events.
 
 import Foundation
