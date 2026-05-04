@@ -14,6 +14,8 @@ const TITLE: Record<VitalLane, string> = {
 };
 
 type Props = {
+  /** Patient token for telemetry attribution. */
+  token: string;
   minutesAgo: number;
   changes: VitalReading[];
   onDismiss: () => void;
@@ -25,12 +27,12 @@ type Props = {
  * Appears under the sticky header on re-entry where last-viewed >5min old.
  * Format: "Since you last viewed (Nm ago): VITAL change, VITAL change…".
  */
-export function WhatsNewBanner({ minutesAgo, changes, onDismiss, onTapVital }: Props) {
+export function WhatsNewBanner({ token, minutesAgo, changes, onDismiss, onTapVital }: Props) {
   const t = useTokens();
 
   useEffect(() => {
-    telemetry.emit('whats_new_shown', { token: '', minutesAgo, vitalCount: changes.length });
-  }, [minutesAgo, changes.length]);
+    telemetry.emit('whats_new_shown', { token, minutesAgo, vitalCount: changes.length });
+  }, [token, minutesAgo, changes.length]);
 
   return (
     <View style={[styles.row, { backgroundColor: t.accent.accentBg, borderBottomColor: t.surface.hairline }]}>
@@ -53,7 +55,7 @@ export function WhatsNewBanner({ minutesAgo, changes, onDismiss, onTapVital }: P
       </Text>
       <Pressable
         onPress={() => {
-          telemetry.emit('whats_new_dismissed', { token: '' });
+          telemetry.emit('whats_new_dismissed', { token });
           onDismiss();
         }}
         accessibilityRole="button"

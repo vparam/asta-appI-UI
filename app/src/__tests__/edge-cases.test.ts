@@ -45,7 +45,8 @@ describe('Severity composition asymmetry (§13.2 v2.7)', () => {
     const c = compose('critical', lightTokens);
     expect(c.cardStyle.borderWidth).toBe(2);
     expect(c.cardStyle.backgroundColor).toBe(lightTokens.severity.criticalBg);
-    expect(c.scoreNumericStyle.fontWeight).toBe('600');
+    // §19.31 literal: bold. fontWeight '700' is bold; '600' is semibold.
+    expect(c.scoreNumericStyle.fontWeight).toBe('700');
   });
   test('regular weight on stable AND watch numerics (§13.4 explicit)', () => {
     expect(compose('stable', lightTokens).scoreNumericStyle.fontWeight).toBe('400');

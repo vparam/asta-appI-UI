@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator, RefreshControl, Pressable, Linking, Share } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTokens } from '@/theme/ThemeProvider';
 import { type } from '@/theme/typography';
@@ -238,6 +238,7 @@ export function PatientScreen({ token, eventId, openEscalateSheet, navigation }:
 
       {whatsNew && (
         <WhatsNewBanner
+          token={token}
           minutesAgo={whatsNew.minutesAgo}
           changes={whatsNew.changes}
           onDismiss={() => setWhatsNew(undefined)}
@@ -352,9 +353,32 @@ export function PatientScreen({ token, eventId, openEscalateSheet, navigation }:
         <View style={styles.actionRow}>
           <Button label="⟳ Rerun" variant="outlined" onPress={() => rerun()} fullWidth style={{ flex: 1 }} />
           <View style={{ width: 8 }} />
-          <Button label="↗ Open in Pro" variant="outlined" fullWidth style={{ flex: 1 }} />
+          <Button
+            label="↗ Open in Pro"
+            variant="outlined"
+            onPress={() => {
+              const url = `https://app.astahealthtech.com/pro/patient/${token}`;
+              Linking.openURL(url).catch(() => undefined);
+            }}
+            fullWidth
+            style={{ flex: 1 }}
+          />
           <View style={{ width: 8 }} />
-          <Button label="⤴ Share" variant="outlined" fullWidth style={{ flex: 1 }} />
+          <Button
+            label="⤴ Share"
+            variant="outlined"
+            onPress={() => {
+              // Three-line summary per §7.12 share sheet "Copy summary".
+              // §3.2: only token + bed + clinical interpretation — no PII.
+              const summary =
+                `${patient.bed.ward} · Bed ${patient.bed.bed} · ${patient.bed.token}\n` +
+                `Risk ${patient.read.score}/100 · ${patient.read.state.toUpperCase()}\n` +
+                `${patient.read.actionLine}`;
+              Share.share({ message: summary }).catch(() => undefined);
+            }}
+            fullWidth
+            style={{ flex: 1 }}
+          />
         </View>
       </ScrollView>
 

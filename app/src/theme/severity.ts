@@ -56,14 +56,14 @@ export function compose(state: SeverityState, t: Tokens): SeverityComposition {
       };
 
     case 'critical':
-      // 3 channels: full outline + wash + bold numeric.
+      // 3 channels: full outline + wash + bold numeric (§19.31 literal: 'bold').
       return {
         cardStyle: {
           backgroundColor: t.severity.criticalBg,
           borderColor: t.severity.criticalRule,
           borderWidth: 2,
         },
-        scoreNumericStyle: { color: t.severity.critical, fontWeight: '600' },
+        scoreNumericStyle: { color: t.severity.critical, fontWeight: '700' },
         dotColour: t.severity.critical,
         pill: {
           backgroundColor: t.severity.critical,

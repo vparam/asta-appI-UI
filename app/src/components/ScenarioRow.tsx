@@ -51,10 +51,9 @@ export function ScenarioRow({ scenario, defaultExpanded = false, isTopScenario =
       style={[styles.row, { borderColor: t.surface.hairline }]}
       accessible
       accessibilityRole="button"
-      accessibilityLabel={`${scenario.title}, ${scenario.confidence.label} confidence ${scenario.confidence.percent} percent. ${scenario.summary}`}
+      accessibilityLabel={`${isTopScenario ? 'Most likely scenario: ' : ''}${scenario.title}, ${scenario.confidence.label} confidence ${scenario.confidence.percent} percent. ${scenario.summary}`}
       accessibilityHint={expanded ? 'Tap to collapse' : 'Tap to expand for evidence and feedback'}
     >
-      {isTopScenario ? null : null /* marker prop consumed; kept for matrix indexing */}
       <Pressable onPress={() => setExpanded((e) => !e)}>
         <View style={styles.titleRow}>
           <View style={{ flex: 1 }}>
