@@ -6,6 +6,9 @@ node_modules/
 yarn-error.log
 npm-debug.log*
 
+# This repo uses yarn workspaces — npm-generated lockfiles are spurious.
+package-lock.json
+
 # Build artifacts
 build/
 dist/
