@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ASTA · Mobile clinical experience — design canvas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #F7F6F2;
+    --ink: #0F1419;
+    --line: #E7E5DE;
+    --accent: #0D5A66;
+    --accent-soft: #E1F0F1;
+    --font-body: "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", monospace;
+  }
+  html, body { margin: 0; padding: 0; background: #DEDCD3; font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+  .phone-shell {
+    position: relative; background: #fff; border-radius: 36px;
+    box-shadow: 0 0 0 8px #111, 0 0 0 9px #2a2a2a, 0 30px 60px rgba(0,0,0,0.18);
+    overflow: hidden;
+  }
+  .phone-shell .island {
+    position: absolute; top: 9px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 32px; border-radius: 22px; background: #000; z-index: 60;
+  }
+  .phone-shell .statusbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 48px; z-index: 10;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 26px 0; font-family: -apple-system, "SF Pro", system-ui;
+    font-weight: 600; font-size: 14px; color: var(--ink);
+  }
+  .phone-shell .statusbar .right { display: flex; gap: 4px; align-items: center; }
+  .phone-shell .home-bar {
+    position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 4px; border-radius: 4px; background: rgba(0,0,0,0.28); z-index: 70;
+  }
+  .phone-shell .app-canvas {
+    position: absolute; top: 48px; left: 0; right: 0; bottom: 0; overflow: hidden;
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js"></script>
+<script type="text/babel" src="lib/tweaks-panel.jsx"></script>
+<script type="text/babel" src="lib/design-canvas.jsx"></script>
+<script type="text/babel" src="ui.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+
+<script type="text/babel">
+function PhoneFrame({ width = 390, height = 800, label, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="phone-shell" style={{ width, height }}>
+        <div className="island"></div>
+        <div className="statusbar">
+          <span>9:41</span>
+          <span className="right">
+            <svg width="16" height="10" viewBox="0 0 18 11"><rect x="0" y="6.5" width="3" height="4.5" rx="0.7" fill="currentColor"/><rect x="4.5" y="4.5" width="3" height="6.5" rx="0.7" fill="currentColor"/><rect x="9" y="2.5" width="3" height="8.5" rx="0.7" fill="currentColor"/><rect x="13.5" y="0" width="3" height="11" rx="0.7" fill="currentColor"/></svg>
+            <svg width="14" height="10" viewBox="0 0 17 11"><path d="M8.5 2.5c2.3 0 4.4.9 5.9 2.4l1.1-1.1A9 9 0 0 0 8.5 1 9 9 0 0 0 1.5 3.8l1.1 1.1A8.3 8.3 0 0 1 8.5 2.5z" fill="currentColor"/><circle cx="8.5" cy="9" r="1.5" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 26 12"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="currentColor" fill="none" opacity="0.4"/><rect x="2" y="2" width="19" height="8" rx="1.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div className="app-canvas">{children}</div>
+        <div className="home-bar"></div>
+      </div>
+    </div>
+  );
+}
+
+function StaticApp({ screen, patientId, sheet }) {
+  // For canvas review, render sheets as full-screen variants so reviewers
+  // can read the whole surface without the modal occlusion.
+  const fullSheetTitle = sheet === 'decision' ? 'ASTA Sarathi' : sheet === 'judgement' ? 'Judgement' : sheet === 'forecast' ? 'Forecast' : null;
+
+  const content = (() => {
+    if (sheet) {
+      const inner = sheet === 'decision' ? <DecisionSheet patientId={patientId} onClose={() => {}} />
+                  : sheet === 'judgement' ? <JudgementSheet patientId={patientId} onClose={() => {}} />
+                  : sheet === 'forecast'  ? <ForecastSheet patientId={patientId} />
+                  : null;
+      return (
+        <div>
+          <TopBar eyebrow={`${(window.PATIENTS.find(x=>x.id===patientId)||{}).initials || ''} · ${(window.PATIENTS.find(x=>x.id===patientId)||{}).bed || ''}`} title={fullSheetTitle} onBack={() => {}} />
+          <div style={{ paddingBottom: 96 }}>{inner}</div>
+        </div>
+      );
+    }
+    if (screen === 'patient' || (patientId && screen !== 'wards')) {
+      return <PatientScreen patientId={patientId} onBack={() => {}} openSheet={() => {}} />;
+    }
+    if (screen === 'wards') return <WardsScreen onOpenPatient={() => {}} />;
+    return <TriageScreen onOpenPatient={() => {}} filter="all" setFilter={() => {}} />;
+  })();
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, background: T.bg, color: T.ink,
+      fontFamily: 'var(--font-body)', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ flex: 1, overflowY: 'auto' }}>{content}</div>
+      <BottomNav active={screen === 'wards' ? 'wards' : 'triage'} onChange={() => {}} />
+    </div>
+  );
+}
+
+function Canvas() {
+  return (
+    <DesignCanvas
+      title="ASTA · Mobile clinical experience"
+      subtitle="Simplified from 12-panel desktop views into 5 mobile-first surfaces. Tap any frame to focus."
+      bg="#DEDCD3"
+    >
+      <DCSection id="flow" title="Primary flow">
+        <DCArtboard id="triage" label="01 · Triage feed — ranked by ASTA risk" width={420} height={860}>
+          <PhoneFrame width={420} height={860}>
+            <StaticApp screen="triage" />
+          </PhoneFrame>
+        </DCArtboard>
+        <DCArtboard id="patient" label="02 · Patient detail — vitals + Sarathi strip" width={420} height={860}>
+          <PhoneFrame width={420} height={860}>
+            <StaticApp screen="patient" patientId="p-001" />
+          </PhoneFrame>
+        </DCArtboard>
+        <DCArtboard id="decision" label="03 · ASTA Sarathi — scenarios + checks + meds" width={420} height={860}>
+          <PhoneFrame width={420} height={860}>
+            <StaticApp screen="patient" patientId="p-001" sheet="decision" />
+          </PhoneFrame>
+        </DCArtboard>
+        <DCArtboard id="judgement" label="04 · Clinician judgement" width={420} height={860}>
+          <PhoneFrame width={420} height={860}>
+            <StaticApp screen="patient" patientId="p-001" sheet="judgement" />
+          </PhoneFrame>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="secondary" title="Supporting surfaces">
+        <DCArtboard id="forecast" label="05 · Vital forecast — next 2h" width={420} height={860}>
+          <PhoneFrame width={420} height={860}>
+            <StaticApp screen="patient" patientId="p-001" sheet="forecast" />
+          </PhoneFrame>
+        </DCArtboard>
+        <DCArtboard id="wards" label="06 · Wards overview" width={420} height={860}>
+          <PhoneFrame width={420} height={860}>
+            <StaticApp screen="wards" />
+          </PhoneFrame>
+        </DCArtboard>
+        <DCArtboard id="stable" label="07 · Stable patient — no alerts" width={420} height={860}>
+          <PhoneFrame width={420} height={860}>
+            <StaticApp screen="patient" patientId="p-003" />
+          </PhoneFrame>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('canvas-root')).render(<Canvas />);
+</script>
+
+</body>
+</html>
